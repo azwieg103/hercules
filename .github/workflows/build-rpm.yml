@@ -27,7 +27,7 @@ jobs:
         run: |
           dnf -y install dnf-plugins-core
           dnf config-manager --set-enabled crb
-          dnf -y install gcc gcc-c++ make autoconf automake libtool flex bison perl ncurses-devel zlib-devel bzip2-devel openssl-devel curl-devel rpm-build rpmdevtools git tar gzip findutils sed grep patch diffutils which pkgconf-pkg-config
+          dnf -y install gcc gcc-c++ make autoconf automake libtool libtool-ltdl-devel flex bison perl ncurses-devel zlib-devel bzip2-devel openssl-devel curl-devel rpm-build rpmdevtools git tar gzip findutils sed grep patch diffutils which pkgconf-pkg-config
           dnf clean all
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
