@@ -1,0 +1,6 @@
+/upstream/
+/work/
+/rpmbuild/
+/dist/
+/build-logs/
+*.rpm

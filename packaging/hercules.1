@@ -1,0 +1,69 @@
+.TH HERCULES 1 "November 2026" "Hercules 4.x" "User Commands"
+.SH NAME
+hercules \\- IBM System/370, ESA/390 and z/Architecture emulator
+.SH SYNOPSIS
+.B hercules
+.RI [ options ]
+.RI [ configuration-file ]
+.SH DESCRIPTION
+.B hercules
+emulates IBM System/370, ESA/390 and 64-bit z/Architecture mainframe hardware.
+It provides emulated processors, main storage, channel subsystems and
+peripheral devices so that compatible mainframe operating systems and
+applications can run on a Linux host.
+.PP
+Hercules is normally started with a configuration file describing the
+machine model, storage size, devices and network interfaces. The emulator
+provides an interactive operator console for controlling the emulated
+machine.
+.SH OPTIONS
+The available command-line options depend on the upstream Hercules build.
+Run
+.B hercules -h
+or consult the installed Hercules documentation for the complete list.
+.PP
+A configuration file may be supplied as the final argument. If omitted,
+Hercules uses its default configuration behavior and may prompt for required
+configuration information.
+.SH FILES
+.TP
+.I /etc/hercules/
+System-wide location reserved for Hercules configuration files.
+.TP
+.I /usr/share/hercules/
+Installed Hercules data and documentation files.
+.TP
+.I /var/lib/hercules/
+Suggested location for persistent emulator data, disk images and tapes.
+.SH EXAMPLES
+Start Hercules with a configuration file:
+.PP
+.nf
+hercules /etc/hercules/my-system.cnf
+.fi
+.PP
+Display command-line help:
+.PP
+.nf
+hercules -h
+.fi
+.SH NOTES
+The emulator does not include IBM operating system software, licensed
+mainframe programs, disk images or other proprietary guest materials.
+Those must be obtained and used under their respective licenses.
+.PP
+Network devices, tun/tap networking and privileged host-device access may
+require additional host configuration and permissions. Do not run the
+emulator with elevated privileges unless the selected device configuration
+requires it and the security implications are understood.
+.SH SEE ALSO
+.BR hercifc (1),
+.BR dasdinit (1),
+.BR dasdls (1),
+.BR tapecopy (1)
+.PP
+Project documentation: https://www.hercules-390.eu/
+.SH AUTHORS
+SDL Hercules development team and contributors.
+.PP
+Enterprise Linux RPM packaging by ZWIEGNET.

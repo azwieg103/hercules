@@ -1,0 +1,180 @@
+name: Build Hercules RPM (Enterprise Linux 10)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "packaging/**"
+      - "scripts/**"
+      - "README.md"
+      - ".github/workflows/build-rpm.yml"
+  schedule:
+    - cron: "23 8 * * *"
+
+concurrency:
+  group: hercules-rpm-build
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: almalinux:10
+    permissions:
+      contents: read
+    outputs:
+      is_current: ${{ steps.freshness.outputs.is_current }}
+      rpm_version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Install build requirements
+        run: |
+          dnf -y install dnf-plugins-core
+          dnf config-manager --set-enabled crb
+          dnf -y install gcc gcc-c++ make autoconf automake libtool flex bison perl \
+            ncurses-devel zlib-devel bzip2-devel openssl-devel curl-devel \
+            rpm-build rpmdevtools git tar gzip findutils sed grep patch \
+            diffutils which pkgconf-pkg-config
+          dnf clean all
+
+      - name: Check out packaging repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Select next ZWIEGNET rebuild number
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/SDL-Hercules-390/hyperion.git upstream
+          python3 - <<'PY'
+          import json, os, re, urllib.request
+          text = open("upstream/configure.ac", encoding="utf-8").read()
+          def number(key):
+              m = re.search(r"^" + key + r"=(\d+)", text, re.M)
+              if not m: raise SystemExit("Cannot determine " + key)
+              return int(m.group(1))
+          version = ".".join(str(number(k)) for k in ("VERS_MAJ","VERS_INT","VERS_MIN"))
+          dev = number("VERS_DEV")
+          if dev: version += ".dev"
+          prefix = f"hercules-{version}-ZWIEGNET."
+          token = os.environ["GH_TOKEN"]
+          maximum, page = 0, 1
+          while True:
+              url = f"https://api.github.com/repos/${{ github.repository }}/releases?per_page=100&page={page}"
+              req = urllib.request.Request(url, headers={"Accept":"application/vnd.github+json","Authorization":f"Bearer {token}","X-GitHub-Api-Version":"2022-11-28"})
+              with urllib.request.urlopen(req) as response: releases = json.load(response)
+              if not releases: break
+              for release in releases:
+                  tag = release.get("tag_name","")
+                  if tag.startswith(prefix):
+                      m = re.fullmatch(re.escape(prefix) + r"([1-9][0-9]*)\.el10", tag)
+                      if m: maximum = max(maximum, int(m.group(1)))
+              if len(releases) < 100: break
+              page += 1
+          release = f"ZWIEGNET.{maximum+1}.el10"
+          with open(os.environ["GITHUB_OUTPUT"],"a") as out:
+              out.write(f"version={version}\nrelease={release}\n")
+          print(f"Upstream version: {version}; RPM release: {release}")
+          PY
+
+      - name: Build and test RPM (retry up to 3 times)
+        env:
+          RPM_VERSION: ${{ steps.release.outputs.version }}
+          RPM_RELEASE: ${{ steps.release.outputs.release }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "::group::Hercules RPM build attempt $attempt/3"
+            if ./scripts/build-rpm.sh; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            rc=$?
+            echo "Build attempt $attempt failed (exit $rc)."
+            echo "::endgroup::"
+            if [ "$attempt" -lt 3 ]; then
+              rm -rf work rpmbuild dist
+              sleep $((attempt * 10))
+            fi
+          done
+          echo "All three build attempts failed."
+          exit 1
+
+      - name: Preserve build diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hercules-build-diagnostics
+          path: build-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Confirm this is still the latest main build
+        if: success() && github.event_name != 'schedule'
+        id: freshness
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const ref = await github.rest.git.getRef({owner:context.repo.owner,repo:context.repo.repo,ref:"heads/main"});
+            const current = ref.data.object.sha === context.sha;
+            core.setOutput("is_current",String(current));
+            if (!current) core.info("Skipping publication from an outdated commit.");
+      - name: Mark scheduled/manual build as publishable
+        if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        id: freshness_manual
+        run: echo "is_current=true" >> "$GITHUB_OUTPUT"
+
+      - name: Determine RPM metadata
+        if: success()
+        id: meta
+        run: |
+          rpm_file=$(find dist -maxdepth 1 -type f -name 'hercules-*.el10.*.rpm' ! -name '*debuginfo*' ! -name '*debugsource*' | head -n1)
+          test -n "$rpm_file"
+          version=$(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$rpm_file")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          rpm -qp --qf 'RPM: %{NAME} %{VERSION}-%{RELEASE} %{ARCH}\n' "$rpm_file"
+
+      - name: Upload RPM artifacts
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hercules-almalinux-10-x86_64
+          path: dist/*.rpm
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: hercules-almalinux-10-x86_64
+          path: dist
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          RPM_VERSION: ${{ needs.build.outputs.rpm_version }}
+        run: |
+          set -euo pipefail
+          tag="hercules-$RPM_VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; refusing to overwrite it."
+            exit 1
+          fi
+          gh release create "$tag" dist/*.rpm --target "$GITHUB_SHA" \
+            --title "Hercules $RPM_VERSION (Enterprise Linux 10)" \
+            --notes "Hercules mainframe emulator rebuilt on AlmaLinux 10 x86_64. RPMs use the ZWIEGNET.N.el10 release scheme. Built from SDL Hercules 4.x Hyperion upstream. Includes binary RPM and source RPM where produced. Supplied as-is, without warranty or support." --latest
