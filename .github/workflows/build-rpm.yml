@@ -8,11 +8,12 @@ on:
     - cron: "23 8 * * *"
 concurrency:
   group: hercules-rpm-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   build:
+    timeout-minutes: 90
     runs-on: ubuntu-latest
     container:
       image: almalinux:10
