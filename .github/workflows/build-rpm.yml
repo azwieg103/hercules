@@ -71,6 +71,7 @@ jobs:
           RPM_RELEASE: ${{ steps.release.outputs.release }}
         run: |
           set -euo pipefail
+          chmod +x scripts/build-rpm.sh
           for attempt in 1 2 3; do
             echo "::group::Hercules RPM build attempt $attempt/3"
             if ./scripts/build-rpm.sh; then
