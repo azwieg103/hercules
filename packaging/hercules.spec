@@ -9,6 +9,7 @@ Source1:        hercules.1
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  make
+BuildRequires:  libtool-ltdl-devel
 BuildRequires:  ncurses-devel
 BuildRequires:  zlib-devel
 BuildRequires:  bzip2-devel
