@@ -41,8 +41,8 @@ CFLAGS="%{optflags}" ./configure \
 rm -rf %{buildroot}
 %make_install DESTDIR=%{buildroot}
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_mandir}/man1/hercules.1
-find %{buildroot} -type f ! -name '*.la' ! -path '%{buildroot}%{_mandir}/man1/hercules.1' -printf '/%%P\n' | sort > %{_builddir}/hercules-filelist
-find %{buildroot} -type l ! -xtype l -printf '/%%P\n' | sort >> %{_builddir}/hercules-filelist
+find %{buildroot} -type f ! -name '*.la' ! -path '%{buildroot}%{_mandir}/*' -printf '/%%P\n' | sort > %{_builddir}/hercules-filelist
+find %{buildroot} -type l ! -path '%{buildroot}%{_mandir}/*' ! -xtype l -printf '/%%P\n' | sort >> %{_builddir}/hercules-filelist
 
 %files -f %{_builddir}/hercules-filelist
 %license COPYRIGHT
