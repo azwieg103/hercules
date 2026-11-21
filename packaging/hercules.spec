@@ -48,3 +48,7 @@ find %{buildroot} -type l ! -path '%{buildroot}%{_mandir}/*' ! -xtype l -printf 
 %license COPYRIGHT
 %doc README.md BUILDING CHANGES
 %{_mandir}/man1/hercules.1*
+%{_mandir}/man1/cckddiag.1*
+%{_mandir}/man1/dasdseq.1*
+%{_mandir}/man1/vmfplc2.1*
+%{_mandir}/man4/cckd.4*
