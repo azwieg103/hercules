@@ -6,7 +6,6 @@ License:        QPL
 URL:            https://www.hercules-390.eu/
 Source0:        %{name}-%{version}.tar.gz
 Source1:        hercules.1
-
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  make
@@ -17,11 +16,8 @@ BuildRequires:  openssl-devel
 BuildRequires:  curl-devel
 
 %description
-SDL Hercules is an open-source software implementation of the IBM System/370,
-ESA/390 and 64-bit z/Architecture mainframe instruction set architectures.
-It emulates mainframe hardware, including processors, memory, channels and
-I/O devices, allowing supported operating systems and software to run on
-a Linux host.
+SDL Hercules emulates IBM System/370, ESA/390 and 64-bit z/Architecture
+mainframe hardware, including processors, storage, channels and I/O devices.
 
 %prep
 %setup -q -n hercules
@@ -44,9 +40,6 @@ CFLAGS="%{optflags}" ./configure \
 rm -rf %{buildroot}
 %make_install DESTDIR=%{buildroot}
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_mandir}/man1/hercules.1
-
-# Hercules installs a collection of emulator utilities and loadable modules.
-# Capture the upstream install manifest while excluding libtool archives.
 find %{buildroot} -type f ! -name '*.la' -printf '/%%P\n' | sort > %{_builddir}/hercules-filelist
 
 %files -f %{_builddir}/hercules-filelist
