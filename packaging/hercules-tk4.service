@@ -1,0 +1,22 @@
+[Unit]
+Description=TK4- MVS 3.8j on Hercules
+Documentation=https://wotho.ethz.ch/tk4-/
+After=network.target
+ConditionPathExists=/var/lib/hercules/tk4/conf/tk4-.cnf
+RequiresMountsFor=/var/lib/hercules/tk4
+
+[Service]
+Type=simple
+User=hercules
+Group=hercules
+WorkingDirectory=/var/lib/hercules/tk4
+ExecStart=/usr/libexec/hercules/tk4-hercules
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=120
+UMask=0027
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
