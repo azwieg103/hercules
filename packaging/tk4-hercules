@@ -22,4 +22,4 @@ fi
 export HERCULES_RC=scripts/ipl.rc
 
 # Do not daemonize: systemd supervises this foreground process.
-exec /usr/bin/hercules -f conf/tk4-.cnf
+exec /usr/bin/hercules -n -o log/3033.log -f conf/tk4-.cnf
