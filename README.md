@@ -73,6 +73,234 @@ configuration, DASD images, startup scripts, and system-specific operating
 instructions. Follow the distribution's own documentation first; do not
 substitute an arbitrary sample device layout for its supplied configuration.
 
+### TK4-: run MVS 3.8j with this Hercules RPM
+
+[TK4- (The MVS 3.8j Tur(n)key System)](https://wotho.ethz.ch/tk4-/) is a
+ready-to-run MVS 3.8j environment. It supplies the guest DASD images,
+Hercules configuration, startup scripts, and MVS customization. The
+Hercules RPM in this repository supplies the **emulator executable**; use
+that executable instead of the older Hercules binary bundled with some
+TK4- archives.
+
+#### 1. Download and extract TK4-
+
+Install the archive tools and create a dedicated location. The following
+uses the published current archive URL; if the TK4- download page publishes
+a newer archive name, use that archive instead.
+
+```bash
+sudo dnf install -y curl unzip
+
+sudo install -d -o hercules -g hercules -m 0750 /var/lib/hercules/tk4
+
+sudo -u hercules curl -fL \
+  https://wotho.ethz.ch/tk4-/tk4-_v1.00_current.zip \
+  -o /var/lib/hercules/tk4-current.zip
+
+sudo -u hercules unzip -q \
+  /var/lib/hercules/tk4-current.zip \
+  -d /var/lib/hercules/tk4
+```
+
+The extracted TK4- directory must have these paths directly beneath it:
+
+```text
+/var/lib/hercules/tk4/
+  conf/tk4-.cnf
+  scripts/ipl.rc
+  scripts/tk4-.rc
+  start_herc
+  mvs
+  local_conf/
+  dasd/
+  log/
+  unattended/
+```
+
+Some archive revisions or repackaged downloads may add a top-level directory.
+If so, move that directory's **contents** into
+`/var/lib/hercules/tk4/`; do not leave the configuration nested an extra
+level down. Check before proceeding:
+
+```bash
+test -f /var/lib/hercules/tk4/conf/tk4-.cnf
+test -f /var/lib/hercules/tk4/scripts/ipl.rc
+test -d /var/lib/hercules/tk4/dasd
+```
+
+Set ownership so MVS can update its DASD, logs, printer output, and other
+working files:
+
+```bash
+sudo chown -R hercules:hercules /var/lib/hercules/tk4
+sudo chmod 0750 /var/lib/hercules/tk4
+```
+
+Keep a backup of the original TK4- archive and guest DASD images before
+applying updates or making system changes. Do not run an update against the
+only copy of your system volumes.
+
+#### 2. Use the installed Hercules binary, not TK4-'s bundled one
+
+The stock TK4- Linux launch scripts prepend TK4-'s own
+`hercules/linux/<architecture>/bin` directory to `PATH` and set
+`LD_LIBRARY_PATH` to its bundled libraries. That can cause the old bundled
+emulator to run even when the ZWIEGNET RPM is installed.
+
+For this RPM, use `/usr/bin/hercules` explicitly and do not add TK4-'s
+bundled Hercules directories to the library path. The wrapper below also
+loads TK4-'s optional local startup parameters and selects its supplied
+automatic IPL script.
+
+Create the wrapper:
+
+```bash
+sudo install -d -m 0755 /usr/local/libexec
+
+sudo tee /usr/local/libexec/tk4-hercules >/dev/null <<'EOF'
+#!/usr/bin/bash
+set -euo pipefail
+
+cd /var/lib/hercules/tk4
+
+# Load optional TK4- local startup overrides, if present.
+if [[ -r local_conf/tk4-.parm ]]; then
+    set -a
+    . ./local_conf/tk4-.parm
+    set +a
+fi
+
+# TK4-'s IPL script boots the supplied MVS system on DASD address 148.
+export HERCULES_RC=scripts/ipl.rc
+
+# Run the RPM-installed emulator in the foreground for systemd.
+exec /usr/bin/hercules -f conf/tk4-.cnf
+EOF
+
+sudo chmod 0755 /usr/local/libexec/tk4-hercules
+```
+
+The `scripts/ipl.rc` file is TK4-'s own automated IPL sequence. It issues
+`ipl 148` and uses TK4- automation to answer the MVS startup prompts. This
+is different from the manual `start_herc` procedure, where you enter the
+IPL command yourself.
+
+#### 3. Create a TK4-specific systemd service
+
+If you previously created the generic `hercules.service` from the section
+below, disable it so it does not compete for the same emulator ports:
+
+```bash
+sudo systemctl disable --now hercules.service 2>/dev/null || true
+```
+
+Create `/etc/systemd/system/hercules-tk4.service`:
+
+```ini
+[Unit]
+Description=TK4- MVS 3.8j on Hercules
+Documentation=https://wotho.ethz.ch/tk4-/
+After=network.target
+
+[Service]
+Type=simple
+User=hercules
+Group=hercules
+WorkingDirectory=/var/lib/hercules/tk4
+ExecStart=/usr/local/libexec/tk4-hercules
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=120
+UMask=0027
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now hercules-tk4.service
+```
+
+Check startup and logs:
+
+```bash
+systemctl status hercules-tk4.service
+sudo journalctl -u hercules-tk4.service -f
+```
+
+The wrapper intentionally does not pass Hercules's `-d` daemon option.
+Hercules remains in the foreground, so systemd tracks the actual emulator
+process. TK4- performs its IPL through `scripts/ipl.rc`.
+
+#### 4. Connect a TN3270 terminal
+
+The standard TK4- configuration provides a TN3270 console listener, normally
+on TCP port 3270. Confirm the actual listener on your host:
+
+```bash
+sudo ss -ltnp | grep -E ':(3270|8038)\\b'
+```
+
+Connect a TN3270 client to the Linux host's address on port `3270`. If
+connecting from another machine, allow TCP/3270 through the host firewall
+only from the client networks that should have access. For example, to open
+the port generally with firewalld:
+
+```bash
+sudo firewall-cmd --permanent --add-port=3270/tcp
+sudo firewall-cmd --reload
+```
+
+The Hercules HTTP command interface commonly listens on TCP/8038 in TK4-
+configurations. Treat that as an administrative interface: do not expose it
+to untrusted networks or the public Internet. If remote access is required,
+restrict it with host firewall rules or use a secure tunnel.
+
+Once the guest finishes IPL, the TN3270 console should display the MVS
+system. TK4- includes its own sample users, jobs, and operational setup;
+consult the distribution's manual for login credentials, commands, and
+customization.
+
+#### 5. Stop and restart TK4- safely
+
+Use the TK4-/MVS shutdown procedure from its operator console before
+stopping the emulator service. Do not use `systemctl stop` as a substitute
+for an orderly guest shutdown while MVS is running jobs or writing DASD.
+
+After the guest has shut down, manage the emulator with:
+
+```bash
+sudo systemctl stop hercules-tk4.service
+sudo systemctl start hercules-tk4.service
+sudo systemctl restart hercules-tk4.service
+sudo systemctl disable hercules-tk4.service
+```
+
+For diagnostics:
+
+```bash
+sudo journalctl -u hercules-tk4.service -b
+sudo ss -ltnp | grep -E ':(3270|8038)\\b'
+```
+
+If the service starts but MVS does not IPL, check that
+`/var/lib/hercules/tk4/scripts/ipl.rc` exists, the configured DASD images
+are present and writable, and the service's working directory is
+`/var/lib/hercules/tk4`. Also inspect the TK4- `log/` directory and the
+system journal.
+
+For more detail, see the [TK4- project and downloads](https://wotho.ethz.ch/tk4-/),
+the [TK4- source scripts](https://github.com/actualquak/tk4), and the
+[TK4- user manual](https://peppe8o.com/download/python/mainframe/mvs_tk4-_v1.00_users_manual.pdf).
+The manual documents both the automatic IPL sequence and the manual
+procedure (start Hercules, connect the configured consoles, then issue
+`ipl 148`).
+
 ### 1. Create a service account and data directories
 
 Run Hercules as an unprivileged dedicated account when the guest does not
