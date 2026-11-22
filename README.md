@@ -91,6 +91,11 @@ a newer archive name, use that archive instead.
 ```bash
 sudo dnf install -y curl unzip
 
+# Create the dedicated account if it does not already exist.
+getent passwd hercules >/dev/null || sudo useradd --system \\
+  --home-dir /var/lib/hercules --create-home \\
+  --shell /sbin/nologin hercules
+
 sudo install -d -o hercules -g hercules -m 0750 /var/lib/hercules/tk4
 
 sudo -u hercules curl -fL \
@@ -159,7 +164,7 @@ sudo install -d -m 0755 /usr/local/libexec
 
 sudo tee /usr/local/libexec/tk4-hercules >/dev/null <<'EOF'
 #!/usr/bin/bash
-set -euo pipefail
+set -e
 
 cd /var/lib/hercules/tk4
 
