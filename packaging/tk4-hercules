@@ -1,0 +1,25 @@
+#!/usr/bin/bash
+set -e
+
+TK4_HOME=/var/lib/hercules/tk4
+
+if [[ ! -r "$TK4_HOME/conf/tk4-.cnf" ]]; then
+    echo "TK4- configuration not found: $TK4_HOME/conf/tk4-.cnf" >&2
+    echo "Extract a licensed TK4- distribution into $TK4_HOME first." >&2
+    exit 1
+fi
+
+cd "$TK4_HOME"
+
+# Load optional TK4- local startup parameters.
+if [[ -r local_conf/tk4-.parm ]]; then
+    set -a
+    . ./local_conf/tk4-.parm
+    set +a
+fi
+
+# TK4-'s unattended IPL script boots the supplied MVS guest.
+export HERCULES_RC=scripts/ipl.rc
+
+# Do not daemonize: systemd supervises this foreground process.
+exec /usr/bin/hercules -f conf/tk4-.cnf
