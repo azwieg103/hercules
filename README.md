@@ -92,8 +92,8 @@ a newer archive name, use that archive instead.
 sudo dnf install -y curl unzip
 
 # Create the dedicated account if it does not already exist.
-getent passwd hercules >/dev/null || sudo useradd --system \\
-  --home-dir /var/lib/hercules --create-home \\
+getent passwd hercules >/dev/null || sudo useradd --system \
+  --home-dir /var/lib/hercules --create-home \
   --shell /sbin/nologin hercules
 
 sudo install -d -o hercules -g hercules -m 0750 /var/lib/hercules/tk4
@@ -248,7 +248,7 @@ The standard TK4- configuration provides a TN3270 console listener, normally
 on TCP port 3270. Confirm the actual listener on your host:
 
 ```bash
-sudo ss -ltnp | grep -E ':(3270|8038)\\b'
+sudo ss -ltnp | grep -E ':(3270|8038)\b'
 ```
 
 Connect a TN3270 client to the Linux host's address on port `3270`. If
@@ -290,7 +290,7 @@ For diagnostics:
 
 ```bash
 sudo journalctl -u hercules-tk4.service -b
-sudo ss -ltnp | grep -E ':(3270|8038)\\b'
+sudo ss -ltnp | grep -E ':(3270|8038)\b'
 ```
 
 If the service starts but MVS does not IPL, check that
