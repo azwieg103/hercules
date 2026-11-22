@@ -15,6 +15,7 @@ BuildRequires:  zlib-devel
 BuildRequires:  bzip2-devel
 BuildRequires:  openssl-devel
 BuildRequires:  curl-devel
+BuildRequires:  systemd-rpm-macros
 
 %description
 SDL Hercules emulates IBM System/370, ESA/390 and 64-bit z/Architecture
@@ -41,6 +42,8 @@ CFLAGS="%{optflags}" ./configure \
 rm -rf %{buildroot}
 %make_install DESTDIR=%{buildroot}
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_mandir}/man1/hercules.1
+install -Dpm 0755 %{_sourcedir}/tk4-hercules %{buildroot}%{_libexecdir}/hercules/tk4-hercules
+install -Dpm 0644 %{_sourcedir}/hercules-tk4.service %{buildroot}%{_unitdir}/hercules-tk4.service
 find %{buildroot} -type f ! -name '*.la' ! -path '%{buildroot}%{_mandir}/*' -printf '/%%P\n' | sort > %{_builddir}/hercules-filelist
 find %{buildroot} -type l ! -path '%{buildroot}%{_mandir}/*' ! -xtype l -printf '/%%P\n' | sort >> %{_builddir}/hercules-filelist
 
@@ -52,3 +55,12 @@ find %{buildroot} -type l ! -path '%{buildroot}%{_mandir}/*' ! -xtype l -printf 
 %{_mandir}/man1/dasdseq.1*
 %{_mandir}/man1/vmfplc2.1*
 %{_mandir}/man4/cckd.4*
+
+%post
+%systemd_post hercules-tk4.service
+
+%preun
+%systemd_preun hercules-tk4.service
+
+%postun
+%systemd_postun hercules-tk4.service
