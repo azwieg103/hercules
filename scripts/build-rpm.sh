@@ -45,6 +45,8 @@ mkdir -p "$WORK/hercules" "$RPMBUILD/BUILD" "$RPMBUILD/BUILDROOT" "$RPMBUILD/RPM
 cp -a "$UPSTREAM/." "$WORK/hercules/"
 tar -czf "$RPMBUILD/SOURCES/hercules-$RPM_VERSION.tar.gz" -C "$WORK" hercules
 cp "$ROOT/packaging/hercules.1" "$RPMBUILD/SOURCES/hercules.1"
+cp "$ROOT/packaging/tk4-hercules" "$RPMBUILD/SOURCES/tk4-hercules"
+cp "$ROOT/packaging/hercules-tk4.service" "$RPMBUILD/SOURCES/hercules-tk4.service"
 rpmbuild -ba "$ROOT/packaging/hercules.spec" --define "_topdir $RPMBUILD" --define "hercules_version $RPM_VERSION" --define "hercules_release $RPM_RELEASE"
 find "$RPMBUILD/RPMS" "$RPMBUILD/SRPMS" -type f -name '*.rpm' -exec cp -v {} "$DIST/" \;
 test -n "$(find "$DIST" -maxdepth 1 -type f -name '*.rpm' -print -quit)"
