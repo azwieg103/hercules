@@ -183,6 +183,7 @@ Check startup and logs:
 ```bash
 systemctl status hercules-tk4.service
 sudo journalctl -u hercules-tk4.service -f
+sudo tail -f /var/lib/hercules/tk4/log/3033.log
 ```
 
 The unit runs Hercules in the foreground, allowing systemd to supervise the
@@ -405,7 +406,7 @@ change the unit file itself, run `sudo systemctl daemon-reload` first.
 
 ### Guest networking and Linux permissions
 
-The example service intentionally runs as the unprivileged `hercules`
+The packaged TK4 launcher uses Hercules `-n` (NoUI) mode and writes the emulator panel log to `/var/lib/hercules/tk4/log/3033.log`; systemd still captures launcher/service messages in the journal. The service intentionally runs as the unprivileged `hercules`
 account. Hercules configurations that attach host networking devices (for
 example, TUN/TAP-backed CTCI, LCS, or QETH devices) may require elevated
 host privileges and access to `/dev/net/tun`. The upstream operating guide
