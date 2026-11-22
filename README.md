@@ -92,10 +92,9 @@ sudo install -d -o hercules -g hercules -m 0750 \
 
 Keep the operating-system distribution and its DASD/tape images under
 `/var/lib/hercules`. Preserve the directory structure expected by its
-configuration and startup scripts. For example, if its configuration
-references `dasd/xxxx. dasd` (with no embedded space in the actual
-filename), either retain that relative layout under the configured working
-directory or edit the paths to their final absolute locations.
+configuration and startup scripts. For example, if its configuration references a relative path such as
+`dasd/vol001.3390`, either retain that directory layout under the configured
+working directory or edit the path to its final absolute location.
 
 Copy the distribution's Hercules configuration to:
 
