@@ -152,79 +152,26 @@ The stock TK4- Linux launch scripts prepend TK4-'s own
 `LD_LIBRARY_PATH` to its bundled libraries. That can cause the old bundled
 emulator to run even when the ZWIEGNET RPM is installed.
 
-For this RPM, use `/usr/bin/hercules` explicitly and do not add TK4-'s
-bundled Hercules directories to the library path. The wrapper below also
-loads TK4-'s optional local startup parameters and selects its supplied
-automatic IPL script.
+The ZWIEGNET RPM now installs a TK4-specific launcher at
+`/usr/libexec/hercules/tk4-hercules` and a systemd unit at
+`/usr/lib/systemd/system/hercules-tk4.service`. The launcher explicitly
+executes `/usr/bin/hercules`, loads optional
+`local_conf/tk4-.parm` settings, and selects TK4-'s automatic IPL script
+(`scripts/ipl.rc`). It does not use TK4-'s bundled emulator or its bundled
+library path.
 
-Create the wrapper:
+#### 3. Enable the packaged TK4 systemd service
 
-```bash
-sudo install -d -m 0755 /usr/local/libexec
-
-sudo tee /usr/local/libexec/tk4-hercules >/dev/null <<'EOF'
-#!/usr/bin/bash
-set -e
-
-cd /var/lib/hercules/tk4
-
-# Load optional TK4- local startup overrides, if present.
-if [[ -r local_conf/tk4-.parm ]]; then
-    set -a
-    . ./local_conf/tk4-.parm
-    set +a
-fi
-
-# TK4-'s IPL script boots the supplied MVS system on DASD address 148.
-export HERCULES_RC=scripts/ipl.rc
-
-# Run the RPM-installed emulator in the foreground for systemd.
-exec /usr/bin/hercules -f conf/tk4-.cnf
-EOF
-
-sudo chmod 0755 /usr/local/libexec/tk4-hercules
-```
-
-The `scripts/ipl.rc` file is TK4-'s own automated IPL sequence. It issues
-`ipl 148` and uses TK4- automation to answer the MVS startup prompts. This
-is different from the manual `start_herc` procedure, where you enter the
-IPL command yourself.
-
-#### 3. Create a TK4-specific systemd service
-
-If you previously created the generic `hercules.service` from the section
+If you previously enabled the generic `hercules.service` from the section
 below, disable it so it does not compete for the same emulator ports:
 
 ```bash
 sudo systemctl disable --now hercules.service 2>/dev/null || true
 ```
 
-Create `/etc/systemd/system/hercules-tk4.service`:
-
-```ini
-[Unit]
-Description=TK4- MVS 3.8j on Hercules
-Documentation=https://wotho.ethz.ch/tk4-/
-After=network.target
-
-[Service]
-Type=simple
-User=hercules
-Group=hercules
-WorkingDirectory=/var/lib/hercules/tk4
-ExecStart=/usr/local/libexec/tk4-hercules
-Restart=on-failure
-RestartSec=10
-TimeoutStopSec=120
-UMask=0027
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start it:
+The TK4 service is installed with the RPM but is **not enabled automatically**.
+After extracting TK4- and verifying that
+`/var/lib/hercules/tk4/conf/tk4-.cnf` exists, enable and start it:
 
 ```bash
 sudo systemctl daemon-reload
@@ -238,9 +185,10 @@ systemctl status hercules-tk4.service
 sudo journalctl -u hercules-tk4.service -f
 ```
 
-The wrapper intentionally does not pass Hercules's `-d` daemon option.
-Hercules remains in the foreground, so systemd tracks the actual emulator
-process. TK4- performs its IPL through `scripts/ipl.rc`.
+The unit runs Hercules in the foreground, allowing systemd to supervise the
+actual emulator process. It only starts when the TK4- configuration file is
+present. TK4- performs its automatic IPL through `scripts/ipl.rc`, which
+issues `ipl 148` and drives the supplied MVS startup sequence.
 
 #### 4. Connect a TN3270 terminal
 
